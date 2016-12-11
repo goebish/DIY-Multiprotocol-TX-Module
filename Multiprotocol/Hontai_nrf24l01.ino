@@ -72,19 +72,29 @@ static void __attribute__((unused)) HONTAI_send_packet(uint8_t bind)
 	{
 		if(sub_protocol == FORMAT_JJRCX1)
 			packet[0] = GET_FLAG(Servo_AUX2, 0x02);						// Arm
-		else
+		else if(sub_protocol == FORMAT_FQ777_951) {
+            packet[0] = GET_FLAG(Servo_AUX3, 0x01)                      // Picture
+                      | GET_FLAG(Servo_AUX4, 0x02);                     // Video 
+        }            
+        else
 			packet[0] = 0x0b;
 
 		packet[1] = 0x00;
 		packet[2] = 0x00;
-		packet[3] = (convert_channel_8b_scale(THROTTLE, 0, 127) << 1)	// Throttle
-					| GET_FLAG(Servo_AUX3, 0x01);						// Picture
+		if(sub_protocol == FORMAT_FQ777_951)
+            packet[3] |= GET_FLAG(Servo_AUX1, 0x01);       
+        else
+            packet[3] = (convert_channel_8b_scale(THROTTLE,0, 127) << 1)// Throttle
+			   		| GET_FLAG(Servo_AUX3, 0x01);						// Picture
 		packet[4] = convert_channel_8b_scale(AILERON, 63, 0);			// Aileron
 		if(sub_protocol == FORMAT_HONTAI)
 		{
 			packet[4] |= GET_FLAG(Servo_AUX6, 0x80)						// RTH
 					| GET_FLAG(Servo_AUX5, 0x40);						// Headless
 		}
+        else if(sub_protocol == FORMAT_FQ777_951) {
+            packet[4] |= 0xc0;                                          // Always in expert mode
+        }            
 		else
 		{
 			packet[4] |= 0x80;											// not sure what this bit does
@@ -96,7 +106,12 @@ static void __attribute__((unused)) HONTAI_send_packet(uint8_t bind)
 				| GET_FLAG(Servo_AUX1, 0x40);							// Flip
 		packet[6] = convert_channel_8b_scale(RUDDER, 0, 63)				// Rudder
 				| GET_FLAG(Servo_AUX4, 0x80);							// Video
-		if(sub_protocol == FORMAT_X5C1)
+        if(sub_protocol == FORMAT_FQ777_951) {
+            packet[6] |= GET_FLAG(Servo_AUX5, 0x40);                    // Headless
+            if((packet[4] & 0x3f) > 0x3d && (packet[5] & 0x3f) < 3)
+                packet[5] |= 0x80;                                      // Accelerometer recalibration
+        }		
+        if(sub_protocol == FORMAT_X5C1)
 			packet[7] = convert_channel_8b_scale(AILERON, 0, 63)-31;	// Aileron trim
 		else
 			packet[7] = convert_channel_8b_scale(AILERON, 0, 32)-16;	// Aileron trim
@@ -204,7 +219,7 @@ static void __attribute__((unused)) HONTAI_init2()
 static void __attribute__((unused)) HONTAI_initialize_txid()
 {
 	rx_tx_addr[4] = rx_tx_addr[2]; 
-	if(sub_protocol == FORMAT_HONTAI)
+	if(sub_protocol == FORMAT_HONTAI || sub_protocol == FORMAT_FQ777_951)
 	{
 		rx_tx_addr[0] = 0x4c; // first three bytes some kind of model id? - set same as stock tx
 		rx_tx_addr[1] = 0x4b;
@@ -233,7 +248,7 @@ uint16_t HONTAI_callback()
 	else
 		HONTAI_send_packet(0);
 
-	return HONTAI_PACKET_PERIOD;
+	return sub_protocol == FORMAT_FQ777_951 ? 10000 : HONTAI_PACKET_PERIOD;
 }
 
 uint16_t initHONTAI()

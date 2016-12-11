@@ -152,7 +152,8 @@ enum HONTAI
 {
 	FORMAT_HONTAI	= 0,
 	FORMAT_JJRCX1	= 1,
-	FORMAT_X5C1		= 2
+	FORMAT_X5C1		= 2,
+    FORMAT_FQ777_951= 3
 };
 
 #define NONE 		0
@@ -482,9 +483,10 @@ Serial: 100000 Baud 8e2      _ xxxx xxxx p --
 			CH_16		0
 			CH_8		1
 		sub_protocol==HONTAI
-			FORMAT_HONTAI	0
-			FORMAT_JJRCX1	1
-			FORMAT_X5C1		2
+			FORMAT_HONTAI	 0
+			FORMAT_JJRCX1	 1
+			FORMAT_X5C1		 2
+            FORMAT_FQ777_951 3
 		sub_protocol==AFHDS2A
 			PWM_IBUS	0
 			PPM_IBUS	1
