@@ -96,6 +96,8 @@ static int __attribute__((unused)) Scanner_scan_rssi()
 uint16 Scanner_callback()
 {
 	int rssi_value;
+	if (telemetry_link == 1) // telemetry packet not sent yet
+		return SCAN_CHANNEL_LOCK_TIME;
 	switch (phase) {
 	case SCAN_CHANNEL_CHANGE:
 		rf_ch_num++;
@@ -122,6 +124,7 @@ uint16_t initScanner(void)
 {
 	rf_ch_num = SCAN_MAX_RADIOCHANNEL;
 	scan_tlm_index = 0;
+	telemetry_link = 0;
 	phase = SCAN_CHANNEL_CHANGE;
 	CC2500_Reset();
 	Scanner_cc2500_init();
