@@ -24,7 +24,7 @@
 
 //#define DEBUG_PIN		// Use pin TX for AVR and SPI_CS for STM32 => DEBUG_PIN_on, DEBUG_PIN_off, DEBUG_PIN_toggle
 //#define DEBUG_SERIAL	// Only for STM32_BOARD, compiled with Upload method "Serial"->usart1, "STM32duino bootloader"->USB serial
-
+#define __arm__
 #ifdef __arm__			// Let's automatically select the board if arm is selected
 	#define STM32_BOARD
 #endif
@@ -63,6 +63,7 @@
 	void PPM_decode();
 	extern "C"
 	{
+		void __irq_usart1(void);
 		void __irq_usart2(void);
 		void __irq_usart3(void);
 	}
@@ -265,6 +266,36 @@ uint8_t packet_in[TELEMETRY_BUFFER_SIZE];//telemetry receiving packets
 // Callback
 typedef uint16_t (*void_function_t) (void);//pointer to a function with no parameters which return an uint16_t integer
 void_function_t remote_callback = 0;
+
+
+void SOS()
+{
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		LED_on;
+		delay(100);
+		LED_off;
+		delay(100);
+	}
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		LED_on;
+		delay(500);
+		LED_off;
+		delay(100);
+	}
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		LED_on;
+		delay(100);
+		LED_off;
+		delay(100);
+	}
+	LED_off;
+	delay(1000);
+}
+
+
 
 // Init
 void setup()
@@ -658,6 +689,7 @@ void setup()
 	}
 	debugln("Init complete");
 	LED2_on;
+	SOS();
 }
 
 // Main
@@ -745,6 +777,7 @@ bool Update_All()
 		#endif
 		if(mode_select==MODE_SERIAL && IS_RX_FLAG_on)		// Serial mode and something has been received
 		{
+			//LED_toggle;
 			update_serial_data();							// Update protocol and data
 			update_channels_aux();
 			INPUT_SIGNAL_on;								//valid signal received
@@ -2036,6 +2069,7 @@ void update_serial_data()
 			rx_len=rx_idx;
 			memcpy((void*)rx_ok_buff,(const void*)rx_buff,rx_len);// Duplicate the buffer
 			RX_FLAG_on;							// Data to be processed next time...
+			//LED_toggle;
 		}
 		RX_MISSED_BUFF_off;
 	}
@@ -2104,19 +2138,19 @@ void modules_reset()
 		#ifdef CHECK_FOR_BOOTLOADER
 			if ( boot )
 			{
-				usart2_begin(57600,SERIAL_8N1);
-				USART2_BASE->CR1 &= ~USART_CR1_RXNEIE ;
+				usart1_begin(57600,SERIAL_8N1);
+				USART1_BASE->CR1 &= ~USART_CR1_RXNEIE ;
 				(void)UDR0 ;
 			}
 			else
 		#endif // CHECK_FOR_BOOTLOADER
 		{
-			usart2_begin(100000,SERIAL_8E2);
-			USART2_BASE->CR1 |= USART_CR1_PCE_BIT;
+			usart1_begin(100000,SERIAL_8E2);
+			USART1_BASE->CR1 |= USART_CR1_PCE_BIT;
 		}
 		usart3_begin(100000,SERIAL_8E2);
 		USART3_BASE->CR1 &= ~ USART_CR1_RE;		//disable receive
-		USART2_BASE->CR1 &= ~ USART_CR1_TE;		//disable transmit
+		//USART1_BASE->CR1 &= ~ USART_CR1_TE;		//disable transmit
 	#else
 		//ATMEGA328p
 		#include <util/setbaud.h>	
@@ -2148,6 +2182,14 @@ void modules_reset()
 }
 
 #ifdef STM32_BOARD
+	void usart1_begin(uint32_t baud, uint32_t config)
+	{
+		usart_init(USART1);
+		usart_config_gpios_async(USART1, GPIOA, PIN_MAP[PA10].gpio_bit, GPIOA, PIN_MAP[PA9].gpio_bit, config);
+		LED2_output;
+		usart_set_baud_rate(USART1, STM32_PCLK2, baud/2);
+		usart_enable(USART1);
+	}
 	void usart2_begin(uint32_t baud,uint32_t config )
 	{
 		usart_init(USART2); 
@@ -2198,7 +2240,7 @@ void pollBoot()
 	#ifdef ORANGE_TX
 	if ( USARTC0.STATUS & USART_RXCIF_bm )
 	#elif defined STM32_BOARD
-	if ( USART2_BASE->SR & USART_SR_RXNE )
+	if ( USART1_BASE->SR & USART_SR_RXNE )
 	#else
 	if ( UCSR0A & ( 1 << RXC0 ) )
 	#endif
@@ -2434,7 +2476,7 @@ static void __attribute__((unused)) calc_fh_channels(uint8_t num_ch)
 	#ifdef ORANGE_TX
 		ISR(USARTC0_RXC_vect)
 	#elif defined STM32_BOARD
-		void __irq_usart2()			
+		void __irq_usart1()			
 	#else
 		ISR(USART_RX_vect)
 	#endif
@@ -2442,7 +2484,7 @@ static void __attribute__((unused)) calc_fh_channels(uint8_t num_ch)
 		#ifdef ORANGE_TX
 			if((USARTC0.STATUS & 0x1C)==0)							// Check frame error, data overrun and parity error
 		#elif defined STM32_BOARD
-			if((USART2_BASE->SR & USART_SR_RXNE) && (USART2_BASE->SR &0x0F)==0)					
+			if((USART1_BASE->SR & USART_SR_RXNE) && (USART1_BASE->SR &0x0F)==0)					
 		#else
 			UCSR0B &= ~_BV(RXCIE0) ;								// RX interrupt disable
 			sei() ;
@@ -2450,10 +2492,12 @@ static void __attribute__((unused)) calc_fh_channels(uint8_t num_ch)
 		#endif
 		{ // received byte is ok to process
 			if(rx_idx==0||discard_frame==true)
-			{	// Let's try to sync at this point
+			{	
+				// Let's try to sync at this point
 				RX_MISSED_BUFF_off;									// If rx_buff was good it's not anymore...
 				rx_idx=0;discard_frame=false;
 				rx_buff[0]=UDR0;
+				//usart_putc(USART1, rx_buff[0]);
 				#ifdef FAILSAFE_ENABLE
 					if((rx_buff[0]&0xFC)==0x54)						// If 1st byte is 0x54, 0x55, 0x56 or 0x57 it looks ok
 				#else
@@ -2536,6 +2580,7 @@ static void __attribute__((unused)) calc_fh_channels(uint8_t num_ch)
 				rx_len=rx_idx;
 				memcpy((void*)rx_ok_buff,(const void*)rx_buff,rx_idx);	// Duplicate the buffer
 				RX_FLAG_on;											// Flag for main to process data
+				//LED_toggle;
 			}
 			else
 				RX_MISSED_BUFF_on;									// Notify that rx_buff is good
