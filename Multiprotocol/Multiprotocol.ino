@@ -267,36 +267,6 @@ uint8_t packet_in[TELEMETRY_BUFFER_SIZE];//telemetry receiving packets
 typedef uint16_t (*void_function_t) (void);//pointer to a function with no parameters which return an uint16_t integer
 void_function_t remote_callback = 0;
 
-
-void SOS()
-{
-	for (uint8_t i = 0; i < 3; i++)
-	{
-		LED_on;
-		delay(100);
-		LED_off;
-		delay(100);
-	}
-	for (uint8_t i = 0; i < 3; i++)
-	{
-		LED_on;
-		delay(500);
-		LED_off;
-		delay(100);
-	}
-	for (uint8_t i = 0; i < 3; i++)
-	{
-		LED_on;
-		delay(100);
-		LED_off;
-		delay(100);
-	}
-	LED_off;
-	delay(1000);
-}
-
-
-
 // Init
 void setup()
 {
@@ -689,7 +659,6 @@ void setup()
 	}
 	debugln("Init complete");
 	LED2_on;
-	SOS();
 }
 
 // Main
