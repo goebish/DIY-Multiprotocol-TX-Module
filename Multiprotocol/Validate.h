@@ -242,6 +242,7 @@
 	#undef	DSM_CYRF6936_INO
 	#undef	DSM_RX_CYRF6936_INO
 	#undef	E010R5_CYRF6936_INO
+	#undef	E012_CYRF6936_INO
 	#undef	J6PRO_CYRF6936_INO
 	#undef	MLINK_CYRF6936_INO
 	#undef	TRAXXAS_CYRF6936_INO
@@ -312,6 +313,7 @@
 	#undef	YD717_NRF24L01_INO
 	#undef	ZSX_NRF24L01_INO
 	#undef	E010R5_CYRF6936_INO		// Use both CYRF and NRF code
+	#undef	E012_CYRF6936_INO		// Use both CYRF and NRF code
 #endif
 #if not defined(STM32_BOARD)
 	#undef SX1276_INSTALLED
