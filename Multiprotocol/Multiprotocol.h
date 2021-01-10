@@ -107,6 +107,7 @@ enum PROTOCOLS
 	PROTO_WFLY2		= 79,	// =>A7105
 	PROTO_E016HV2	= 80,	// =>CC2500 & NRF24L01
 	PROTO_E010R5	= 81,	// =>CYRF6936
+	PROTO_E012		= 82,	// =>CYRF6936
 
 	PROTO_NANORF	= 126,	// =>NRF24L01
 	PROTO_TEST		= 127,	// =>CC2500
@@ -307,6 +308,10 @@ enum E01X
 	E012	= 0,
 	E015	= 1,
 	E016H	= 2,
+};
+enum E012
+{
+	// E012 & E015, same indexes as E01X
 };
 enum GD00X
 {

@@ -1367,6 +1367,13 @@ static void protocol_init()
 						remote_callback = ReadE010R5;
 						break;
 				#endif
+				#if defined(E012_CYRF6936_INO)
+					case PROTO_E012:
+						PE2_on;	//antenna RF4
+						next_callback = initE012();
+						remote_callback = E012_callback;
+						break;
+				#endif
 				#if defined(DEVO_CYRF6936_INO)
 					case PROTO_DEVO:
 						#ifdef ENABLE_PPM

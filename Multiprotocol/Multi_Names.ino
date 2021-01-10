@@ -96,6 +96,7 @@ const char STR_TEST[]		="Test";
 const char STR_NANORF[]		="NanoRF";
 const char STR_E016HV2[]    ="E016Hv2";
 const char STR_E010R5[]     ="E010r5";
+const char STR_E012[]		="E012";
 
 const char STR_SUBTYPE_FLYSKY[] =     "\x04""Std\0""V9x9""V6x6""V912""CX20";
 const char STR_SUBTYPE_HUBSAN[] =     "\x04""H107""H301""H501";
@@ -153,6 +154,7 @@ const char STR_SUBTYPE_REALACC[] =    "\x03""R11";
 const char STR_SUBTYPE_KYOSHO[] =     "\x04""FHSS""Hype";
 const char STR_SUBTYPE_FUTABA[] =     "\x05""SFHSS";
 const char STR_SUBTYPE_JJRC345[] =    "\x08""JJRC345\0""SkyTmblr";
+const char STR_SUBTYPE_E012[] =       "\x04""E012""E015";
 
 enum
 {
@@ -216,6 +218,9 @@ const mm_protocol_definition multi_protocols[] = {
 	#endif
 	#if defined(E010R5_CYRF6936_INO)
 		{PROTO_E010R5,     STR_E010R5,    0, NO_SUBTYPE,            OPTION_NONE    },
+	#endif
+	#if defined(E012_CYRF6936_INO)
+		{PROTO_E012,       STR_E012,      2, STR_SUBTYPE_E012,      OPTION_RFTUNE  },
 	#endif
 	#if defined(E016HV2_CC2500_INO)
 		{PROTO_E016HV2,    STR_E016HV2,   0, NO_SUBTYPE,            OPTION_RFTUNE  },
