@@ -314,6 +314,17 @@ void HS6200_Configure(uint8_t enable_crc)
 	hs6200_crc = enable_crc;
 }
 
+static uint8_t __attribute__((unused)) HS6200_BR(uint8_t byte)
+{
+	uint8_t result = 0;
+	for (uint8_t i = 0; i < 8; i++)
+	{
+		result = (result << 1) | (byte & 0x01);
+		byte >>= 1;
+	}
+	return result;
+}
+
 void HS6200_WritePayload(uint8_t* msg, uint8_t len)
 {
 	uint8_t payload[71];
@@ -364,7 +375,7 @@ void HS6200_WritePayload(uint8_t* msg, uint8_t len)
 
 	//CYRF wants LSB first
 	for (uint8_t i = 0; i < pos; i++)
-		payload[i] = E010R5_BR(payload[i]);
+		payload[i] = HS6200_BR(payload[i]);
 	
 	// transmit packet (just transmit 71 bytes for now ...)
 	uint8_t* buffer = payload;
