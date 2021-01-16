@@ -19,7 +19,7 @@
 #include "iface_cyrf6936.h"
 
 //Protocols constants
-#define E012_BIND_COUNT			1000
+#define E012_BIND_COUNT			500
 #define E012_INITIAL_WAIT		500
 #define E012_ADDRESS_LENGTH		5
 
@@ -68,7 +68,7 @@ const uint8_t PROGMEM E012_init_vals[][2] = {
 	{CYRF_1B_TX_OFFSET_LSB, 0x00},	// Tx frequency offset LSB
 	{CYRF_1C_TX_OFFSET_MSB, 0x00},	// Tx frequency offset MSB
 	{CYRF_0F_XACT_CFG, 0x24},		// Force End State, transaction end state = idle
-	{CYRF_03_TX_CFG, 0x00 | 7},		// GFSK mode, PA = +4 dBm
+	{CYRF_03_TX_CFG, 0x00},			// GFSK mode
 	{CYRF_12_DATA64_THOLD, 0x0a},	// 64 Chip Data PN Code Correlator Threshold = 10
 	{CYRF_0F_XACT_CFG, 0x04},		// Transaction End State = idle
 	{CYRF_39_ANALOG_CTRL, 0x01},	// synth setting time for all channels is the same as for slow channels
@@ -77,7 +77,7 @@ const uint8_t PROGMEM E012_init_vals[][2] = {
 	{CYRF_12_DATA64_THOLD, 0x0a},	//set pn correlation threshold
 	{CYRF_10_FRAMING_CFG, 0x4a},	//set sop len and threshold
 	{CYRF_29_RX_ABORT, 0x0f},		//Clear RX abort?
-	{CYRF_03_TX_CFG, 0x00 | 4},		// GFSK mode, set power (0-7)
+	{CYRF_03_TX_CFG, 0x00},			// GFSK mode
 	{CYRF_10_FRAMING_CFG, 0x4a},	// 0b11000000 //set sop len and threshold
 	{CYRF_1F_TX_OVERRIDE, 0x04},	//disable tx CRC
 	{CYRF_1E_RX_OVERRIDE, 0x14},	//disable rx crc
@@ -185,10 +185,13 @@ static void __attribute__((unused)) E012_send_packet(uint8_t bind)
 	HS6200_Configure(1);
 	CYRF_ConfigRFChannel(rf_ch_num);
 	HS6200_WritePayload(packet, packet_length);
+	delayMicroseconds(200);
+	HS6200_WritePayload(packet, packet_length);
 }
 
 static void __attribute__((unused)) E012_init()
 {
+	CYRF_Reset();
 	if (sub_protocol == E012)
 		HS6200_SetTXAddr((uint8_t*)"\x55\x42\x9C\x8F\xC9", E012_ADDRESS_LENGTH);
 	else if (sub_protocol == E015)
@@ -198,6 +201,7 @@ static void __attribute__((unused)) E012_init()
 		CYRF_WriteRegister(pgm_read_byte_near(&E012_init_vals[i][0]), pgm_read_byte_near(&E012_init_vals[i][1]));
 
 	CYRF_SetTxRxMode(TX_EN);
+	CYRF_SetPower(0x00);
 }
 
 uint16_t E012_callback()
@@ -236,10 +240,10 @@ static void __attribute__((unused)) E012_initialize_txid()
 	}
 
 	// test, use same channel for bind and data, known working (with SDR TX)
-	hopping_frequency[0] = 0x3c;
-	hopping_frequency[1] = 0x3c;
-	hopping_frequency[2] = 0x3c;
-	hopping_frequency[3] = 0x3c;
+	hopping_frequency[0] = E012_RF_BIND_CHANNEL;
+	hopping_frequency[1] = E012_RF_BIND_CHANNEL;
+	hopping_frequency[2] = E012_RF_BIND_CHANNEL;
+	hopping_frequency[3] = E012_RF_BIND_CHANNEL;
 }
 
 uint16_t initE012()
@@ -274,6 +278,25 @@ static const uint8_t hs6200_scramble[] = {
 	0x80,0xf5,0x3b,0x0d,0x6d,0x2a,0xf9,0xbc,
 	0x51,0x8e,0x4c,0xfd,0xc1,0x65,0xd0 }; // todo: find all 32 bytes ...
 
+/*
+// adjust frequency with bind button
+void HS6200_AdjFreq() {
+	static uint32_t pressTimeout=0;
+	static int16_t freqOffset=0;
+	if ((digitalRead(PA0) == LOW) && millis() > pressTimeout) {
+		pressTimeout = millis() + 500;
+		freqOffset -= 10;
+		if(freqOffset > 200)
+			freqOffset = -200;
+		else if(freqOffset < -200)
+			freqOffset = 200;
+		debugln("freq offset: %d", freqOffset);
+		CYRF_WriteRegister(CYRF_1B_TX_OFFSET_LSB, (freqOffset) & 0xFF);
+		CYRF_WriteRegister(CYRF_1C_TX_OFFSET_MSB, (freqOffset) >> 8);
+	}
+}
+*/
+
 void HS6200_SetTXAddr(const uint8_t* addr, uint8_t len)
 {
 	if (len < 4)
@@ -282,11 +305,12 @@ void HS6200_SetTXAddr(const uint8_t* addr, uint8_t len)
 		len = 5;
 
 	// preamble
-	if (hs6200_tx_addr[hs6200_address_length - 1] & 0x80)
-		CYRF_WritePreamble(0x555502);
-	else
-		CYRF_WritePreamble(0xAAAA02);
-
+	//if (!(hs6200_tx_addr[hs6200_address_length - 1] & 0x80))
+	//	CYRF_WritePreamble(0x555503);
+	//else
+	//	CYRF_WritePreamble(0xAAAA03);
+	CYRF_WritePreamble(0xAAAA05);
+	
 	// precompute address crc
 	hs6200_crc_init = 0xffff;
 	for (int i = 0; i < len; i++)
@@ -327,18 +351,20 @@ static uint8_t __attribute__((unused)) HS6200_BR(uint8_t byte)
 
 void HS6200_WritePayload(uint8_t* msg, uint8_t len)
 {
+	//HS6200_AdjFreq();
 	uint8_t payload[71];
-	const uint8_t no_ack = 1; // never ask for an ack
+	const uint8_t no_ack = 0; // never ask for an ack
 	static uint8_t pid;
 	uint8_t pos = 0;
 
 	if (len > sizeof(hs6200_scramble))
 		len = sizeof(hs6200_scramble);
 
-	// preamble (already tried with/without/aa/55 ...)
-	uint8_t preamble = 0x55;
-	for(uint8_t pc=0; pc<5; pc++)
-		payload[pos++] = preamble;
+	// preamble
+	// using cyrf6936 preamble, set in HS6200_SetTXAddr()
+
+	// length after this byte ?
+	//payload[pos++] = 70;
 
 	// address
 	for (int i = hs6200_address_length - 1; i >= 0; i--)
@@ -377,7 +403,8 @@ void HS6200_WritePayload(uint8_t* msg, uint8_t len)
 	for (uint8_t i = 0; i < pos; i++)
 		payload[i] = HS6200_BR(payload[i]);
 	
-	// transmit packet (just transmit 71 bytes for now ...)
+	// transmit packet, just transmit 71 bytes for now ...
+	// todo: adjust to actual address / payload length
 	uint8_t* buffer = payload;
 	CYRF_WriteRegister(CYRF_02_TX_CTRL, 0x40);
 	CYRF_WriteRegisterMulti(CYRF_20_TX_BUFFER, buffer, 16);
